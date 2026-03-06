@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Anteiku — Live Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0D0D0F; --bg2:#111115; --bg3:#16161C; --bg4:#1C1C24;
+  --border:rgba(255,255,255,0.06); --border2:rgba(255,255,255,0.1);
+  --gold:#C9A84C; --gold-dim:rgba(201,168,76,0.15); --gold-glow:rgba(201,168,76,0.06);
+  --text-1:#F0EDE6; --text-2:#9B9690; --text-3:#5E5C58;
+  --sage:#6B8F71; --rose:#A05A52; --blue:#4A6FA5; --amber:#C97C2A;
+  --sidebar-w:220px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text-1);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:0.4;}
+
+/* SETUP MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-backdrop.hidden{display:none;}
+.modal{background:var(--bg2);border:1px solid rgba(201,168,76,0.25);border-radius:16px;padding:36px;max-width:620px;width:90%;max-height:90vh;overflow-y:auto;}
+.modal h2{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--gold);margin-bottom:6px;}
+.modal .sub{font-size:12px;color:var(--text-3);margin-bottom:28px;}
+.step{display:flex;gap:14px;margin-bottom:20px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--gold-dim);border:1px solid rgba(201,168,76,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--gold);flex-shrink:0;margin-top:2px;}
+.step-body h4{font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:4px;}
+.step-body p{font-size:12px;color:var(--text-2);line-height:1.7;}
+.step-body code{background:var(--bg4);border:1px solid var(--border2);padding:2px 7px;border-radius:4px;font-size:11px;color:var(--gold);font-family:monospace;}
+.input-row{display:flex;gap:10px;margin-top:18px;}
+.input-row input{flex:1;background:var(--bg4);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text-1);font-size:13px;font-family:'Outfit',sans-serif;outline:none;}
+.input-row input:focus{border-color:rgba(201,168,76,0.4);}
+.input-row input::placeholder{color:var(--text-3);}
+.btn-gold{background:var(--gold);color:#1a1200;font-weight:700;font-size:13px;padding:10px 22px;border:none;border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;transition:opacity 0.2s;white-space:nowrap;}
+.btn-gold:hover{opacity:0.85;}
+.btn-skip{background:transparent;color:var(--text-3);font-size:12px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;}
+.btn-skip:hover{color:var(--text-2);}
+.modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end;}
+.status-msg{font-size:12px;margin-top:10px;padding:8px 12px;border-radius:6px;display:none;}
+.status-msg.ok{background:rgba(107,143,113,0.15);color:var(--sage);display:block;}
+.status-msg.err{background:rgba(160,90,82,0.15);color:var(--rose);display:block;}
+.divider-line{height:1px;background:var(--border);margin:20px 0;}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:200;padding-bottom:24px;}
+.logo-area{padding:28px 22px 22px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--gold),#8B6914);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.logo-text{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;letter-spacing:2px;color:var(--text-1);}
+.logo-sub{font-size:10px;color:var(--text-3);letter-spacing:2px;text-transform:uppercase;padding-left:42px;}
+.nav-group{padding:18px 12px 4px;}
+.nav-group-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);padding:0 10px 8px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--text-2);font-size:12.5px;font-weight:400;transition:all 0.2s;margin-bottom:1px;position:relative;}
+.nav-item:hover{color:var(--text-1);background:rgba(255,255,255,0.04);}
+.nav-item.active{color:var(--gold);background:var(--gold-glow);}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:60%;background:var(--gold);border-radius:0 2px 2px 0;}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:16px 22px;border-top:1px solid var(--border);}
+.sf-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-3);}
+.sf-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);box-shadow:0 0 6px var(--sage);animation:pulse-a 2s infinite;}
+@keyframes pulse-a{0%{box-shadow:0 0 0 0 rgba(107,143,113,0.4);}70%{box-shadow:0 0 0 6px rgba(107,143,113,0);}100%{box-shadow:0 0 0 0 rgba(107,143,113,0);}}
+.conn-badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:500;margin-top:6px;}
+.conn-badge.connected{background:rgba(107,143,113,0.15);color:var(--sage);}
+.conn-badge.offline{background:rgba(255,255,255,0.06);color:var(--text-3);}
+.settings-btn{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);cursor:pointer;margin-top:8px;transition:color 0.2s;}
+.settings-btn:hover{color:var(--gold);}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);min-height:100vh;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:500;letter-spacing:0.5px;color:var(--text-1);}
+.topbar-sub{font-size:11px;color:var(--text-3);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.tb-chip{background:var(--bg3);border:1px solid var(--border2);padding:5px 12px;border-radius:20px;font-size:11px;color:var(--text-2);letter-spacing:0.3px;}
+.tb-chip.live-chip{cursor:pointer;}
+.tb-chip.live-chip:hover{border-color:rgba(201,168,76,0.3);color:var(--gold);}
+.tb-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#6B4D14);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1a1400;cursor:pointer;border:1px solid rgba(201,168,76,0.3);}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--sage);margin-right:5px;animation:pulse-a 2s infinite;}
+
+/* PAGES */
+.page{display:none;padding:28px 32px;}
+.page.active{display:block;animation:pageIn 0.35s ease forwards;}
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* LOADING STATE */
+.loading-overlay{position:absolute;inset:0;background:rgba(13,13,15,0.8);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;z-index:10;}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.kpi-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:border-color 0.2s,transform 0.2s;}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-1px);}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity 0.3s;}
+.kpi-card:hover::after{opacity:1;}
+.kpi-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);font-weight:500;}
+.kpi-value{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:var(--text-1);margin:8px 0 4px;line-height:1;}
+.kpi-delta{font-size:11px;}
+.delta-up{color:var(--sage);}
+.delta-dn{color:var(--rose);}
+.kpi-accent{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.07;}
+
+/* CARDS */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:22px;transition:border-color 0.2s;}
+.card:hover{border-color:var(--border2);}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.card-title{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:500;letter-spacing:0.3px;color:var(--text-1);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:22px;}
+.grid-65{display:grid;grid-template-columns:1.75fr 1fr;gap:18px;margin-bottom:22px;}
+.mb{margin-bottom:22px;}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:500;color:var(--text-1);margin-bottom:16px;}
+
+/* TABS */
+.tabs{display:flex;gap:2px;background:var(--bg4);padding:3px;border-radius:7px;}
+.tab{padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10.5px;font-weight:500;color:var(--text-3);letter-spacing:0.3px;transition:all 0.15s;}
+.tab.active{background:var(--bg2);color:var(--gold);border:1px solid rgba(201,168,76,0.2);}
+
+/* CHART */
+.chart-wrap{position:relative;height:200px;}
+.chart-wrap-lg{position:relative;height:250px;}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;}
+th{font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);font-weight:500;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:10px 12px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--text-2);}
+td strong{color:var(--text-1);}
+tr:hover td{background:rgba(255,255,255,0.015);}
+tr:last-child td{border-bottom:none;}
+
+/* BADGE */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.3px;}
+.b-green{background:rgba(107,143,113,0.15);color:#7AAE82;}
+.b-red{background:rgba(160,90,82,0.15);color:#C07870;}
+.b-gold{background:rgba(201,168,76,0.12);color:var(--gold);}
+.b-blue{background:rgba(74,111,165,0.15);color:#7AABE5;}
+.b-amber{background:rgba(201,124,42,0.15);color:#D4924A;}
+.b-dim{background:rgba(255,255,255,0.05);color:var(--text-2);}
+
+/* PROGRESS */
+.prog{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:5px;overflow:hidden;}
+.prog-f{height:100%;border-radius:2px;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+
+/* INV ROW */
+.inv-row{padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:12px;}
+.inv-row:last-child{border-bottom:none;}
+.inv-emoji{font-size:20px;width:28px;text-align:center;}
+.inv-body{flex:1;}
+.inv-name{font-size:12.5px;color:var(--text-1);font-weight:500;}
+.inv-meta{font-size:10.5px;color:var(--text-3);margin-top:2px;}
+
+/* EMP */
+.emp-row{display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;background:var(--bg4);border:1px solid var(--border);margin-bottom:10px;transition:border-color 0.2s;}
+.emp-row:hover{border-color:var(--border2);}
+.emp-av{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;font-family:'Cormorant Garamond',serif;}
+.emp-name{font-size:13.5px;font-weight:500;color:var(--text-1);}
+.emp-role{font-size:11px;color:var(--text-3);margin-top:1px;}
+.emp-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.emp-data{text-align:right;}
+.emp-leave{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text-1);}
+.emp-leave-label{font-size:10px;color:var(--text-3);}
+
+/* CSAT */
+.csat-num{font-family:'Cormorant Garamond',serif;font-size:72px;font-weight:300;color:var(--gold);line-height:1;}
+.csat-stars{color:var(--gold);font-size:18px;letter-spacing:2px;margin:6px 0 4px;}
+.review{padding:12px 14px;border-radius:8px;background:var(--bg4);border:1px solid var(--border);margin-bottom:10px;border-left:2px solid transparent;}
+.review.pos{border-left-color:var(--sage);}
+.review.neg{border-left-color:var(--rose);}
+.review-meta{font-size:10px;color:var(--text-3);margin-bottom:5px;display:flex;gap:8px;align-items:center;}
+.review-text{font-size:12.5px;color:var(--text-2);line-height:1.6;}
+
+/* PRICE */
+.price-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.price-row:last-child{border-bottom:none;}
+.price-item-name{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);}
+.price-val{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:500;color:var(--gold);}
+
+/* HERO BANNER */
+.hero-banner{background:linear-gradient(135deg,#1A1508 0%,#0D0D0F 50%,#0A1018 100%);border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:28px;position:relative;overflow:hidden;}
+.hero-banner::before{content:'';position:absolute;top:-40px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(201,168,76,0.08) 0%,transparent 70%);}
+.hero-eyebrow{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+.hero-name{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--text-1);margin-bottom:4px;letter-spacing:0.5px;}
+.hero-desc{font-size:12px;color:var(--text-3);margin-bottom:20px;}
+.hero-stats{display:flex;gap:32px;}
+.hs-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);}
+.hs-val{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);font-weight:600;margin-top:2px;}
+
+/* REFRESH BTN */
+.refresh-btn{background:transparent;border:1px solid var(--border2);color:var(--text-2);font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+.refresh-btn:hover{border-color:rgba(201,168,76,0.3);color:var(--gold);}
+
+/* NO DATA */
+.no-data{padding:40px;text-align:center;color:var(--text-3);font-size:13px;}
+.no-data span{font-size:28px;display:block;margin-bottom:10px;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px;}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP MODAL ── -->
+<div class="modal-backdrop" id="setup-modal">
+  <div class="modal">
+    <h2>Connect to Google Sheets</h2>
+    <p class="sub">Follow these 5 steps to connect your Anteiku data. Takes ~5 minutes.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4>Upload the Excel file to Google Sheets</h4>
+        <p>Open <strong>drive.google.com</strong> → Click <strong>+ New → File upload</strong> → Select <code>Anteiku_Cafe_Database.xlsx</code> → Once uploaded, right-click it → <strong>Open with → Google Sheets</strong>. It will convert automatically.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4>Make the Sheet public (read-only)</h4>
+        <p>In your Google Sheet → click <strong>Share</strong> (top right) → click <strong>"Change to anyone with the link"</strong> → Set role to <strong>Viewer</strong> → Click <strong>Copy link</strong> → Click Done.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4>Get your Spreadsheet ID</h4>
+        <p>From the link you copied, extract the ID between <code>/d/</code> and <code>/edit</code>.<br/>
+        Example: <code>https://docs.google.com/spreadsheets/d/<strong>1BxiMVs0XRA...</strong>/edit</code><br/>
+        Your ID is the bold part.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4>Get a free Google API Key</h4>
+        <p>Go to <strong>console.cloud.google.com</strong> → Create a project (or use existing) → Search <strong>"Sheets API"</strong> → Enable it → Go to <strong>APIs & Services → Credentials → Create Credentials → API Key</strong>. Copy the key.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4>Paste your credentials below</h4>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+      <input type="text" id="input-sheet-id" placeholder="Spreadsheet ID  (e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms)" />
+      <input type="text" id="input-api-key" placeholder="Google API Key  (e.g. AIzaSyB...)" />
+    </div>
+
+    <div id="conn-status" class="status-msg"></div>
+
+    <div class="modal-footer">
+      <button class="btn-skip" onclick="skipSetup()">Use sample data for now</button>
+      <button class="btn-gold" onclick="connectSheets()">Connect & Load Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">
+      <div class="logo-icon">☕</div>
+      <div class="logo-text">ANTEIKU</div>
+    </div>
+    <div class="logo-sub">Operations Hub</div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Overview</div>
+    <div class="nav-item active" onclick="nav('dashboard',this)"><span class="nav-icon">◈</span>Dashboard</div>
+    <div class="nav-item" onclick="nav('sales',this)"><span class="nav-icon">◎</span>Sales & Revenue</div>
+    <div class="nav-item" onclick="nav('performance',this)"><span class="nav-icon">◉</span>Performance</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Catalogue</div>
+    <div class="nav-item" onclick="nav('products',this)"><span class="nav-icon">◇</span>Products & Prices</div>
+    <div class="nav-item" onclick="nav('inventory',this)"><span class="nav-icon">◫</span>Inventory</div>
+    <div class="nav-item" onclick="nav('hero',this)"><span class="nav-icon">◈</span>Hero Products</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">People</div>
+    <div class="nav-item" onclick="nav('team',this)"><span class="nav-icon">◎</span>Team</div>
+    <div class="nav-item" onclick="nav('csat',this)"><span class="nav-icon">◉</span>Guest Satisfaction</div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="sf-status"><span class="sf-dot"></span> <span id="data-source-label">Sample Data</span></div>
+    <div id="conn-indicator" class="conn-badge offline">Not connected</div>
+    <div class="settings-btn" onclick="openSetup()">⚙ Connect Google Sheets</div>
+    <div class="settings-btn" onclick="openDebug()" style="margin-top:4px;opacity:0.6">🔍 Debug data</div>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="pg-title">Good morning — Anteiku is open.</div>
+      <div class="topbar-sub" id="pg-sub">Friday, 6 March 2026 · Daily operations overview</div>
+    </div>
+    <div class="topbar-right">
+      <div class="tb-chip"><span class="pulse"></span>Live</div>
+      <button class="refresh-btn" onclick="refreshData()">↻ Refresh</button>
+      <div class="tb-avatar">AK</div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Today's Revenue</div><div class="kpi-value" id="kpi-today-rev">—</div><div class="kpi-delta" id="kpi-today-delta">Loading...</div><div class="kpi-accent">₹</div></div>
+      <div class="kpi-card"><div class="kpi-label">Orders Today</div><div class="kpi-value" id="kpi-today-orders">—</div><div class="kpi-delta" id="kpi-orders-delta">Loading...</div><div class="kpi-accent">☕</div></div>
+      <div class="kpi-card"><div class="kpi-label">Guest Rating</div><div class="kpi-value" id="kpi-rating">—</div><div class="kpi-delta delta-up" id="kpi-rating-sub">Loading...</div><div class="kpi-accent">★</div></div>
+      <div class="kpi-card"><div class="kpi-label">Team Present</div><div class="kpi-value" id="kpi-team">—</div><div class="kpi-delta" id="kpi-team-sub">Loading...</div><div class="kpi-accent">人</div></div>
+    </div>
+    <div class="grid-65">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Revenue Trend</span>
+          <div class="tabs"><div class="tab active" onclick="switchRevTab(this,'week')">Week</div><div class="tab" onclick="switchRevTab(this,'month')">Month</div><div class="tab" onclick="switchRevTab(this,'year')">Year</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="c-rev"></canvas></div>
+      </div>
+      <div class="card"><div class="card-hd"><span class="card-title">Category Split</span></div><div class="chart-wrap"><canvas id="c-cat"></canvas></div></div>
+    </div>
+    <div class="grid-3">
+      <div class="card"><div class="section-title">Top Items · Today</div><div id="top-items-list"></div></div>
+      <div class="card"><div class="section-title">Quick Alerts</div><div id="alerts-list"></div></div>
+      <div id="hero-week-banner" class="hero-banner" style="min-height:200px"></div>
+    </div>
+  </div>
+
+  <!-- SALES -->
+  <div class="page" id="page-sales">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="s-today">—</div><div class="kpi-delta delta-up" id="s-today-d"></div></div>
+      <div class="kpi-card"><div class="kpi-label">This Week</div><div class="kpi-value" id="s-week">—</div><div class="kpi-delta delta-up"></div></div>
+      <div class="kpi-card"><div class="kpi-label">This Month</div><div class="kpi-value" id="s-month">—</div><div class="kpi-delta delta-up"></div></div>
+      <div class="kpi-card"><div class="kpi-label">This Year</div><div class="kpi-value" id="s-year">—</div><div class="kpi-delta delta-up"></div></div>
+    </div>
+    <div class="grid-2 mb">
+      <div class="card"><div class="card-hd"><span class="card-title">Daily Sales — This Week</span></div><div class="chart-wrap"><canvas id="c-daily"></canvas></div></div>
+      <div class="card"><div class="card-hd"><span class="card-title">Monthly — 2026</span></div><div class="chart-wrap"><canvas id="c-monthly"></canvas></div></div>
+    </div>
+    <div class="card"><div class="section-title">Recent Sales Log</div><div id="sales-table-wrap"></div></div>
+  </div>
+
+  <!-- PERFORMANCE -->
+  <div class="page" id="page-performance">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Best Month</div><div class="kpi-value" id="p-best">—</div><div class="kpi-delta delta-up" id="p-best-v"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Slowest Month</div><div class="kpi-value" id="p-slow">—</div><div class="kpi-delta delta-dn" id="p-slow-v"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Monthly Average</div><div class="kpi-value" id="p-avg">—</div><div class="kpi-delta"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Current Progress</div><div class="kpi-value" id="p-curr">—</div><div class="kpi-delta delta-up"></div></div>
+    </div>
+    <div class="card mb"><div class="card-hd"><span class="card-title">12-Month Revenue</span></div><div class="chart-wrap-lg"><canvas id="c-yearperf"></canvas></div></div>
+    <div class="card"><div class="section-title">Monthly Breakdown</div><div id="monthly-table-wrap"></div></div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="page" id="page-products">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Products</div><div class="kpi-value" id="prod-total">—</div><div class="kpi-delta">Active items</div></div>
+      <div class="kpi-card"><div class="kpi-label">Avg Price</div><div class="kpi-value" id="prod-avg">—</div><div class="kpi-delta">Across catalogue</div></div>
+      <div class="kpi-card"><div class="kpi-label">Highest Ticket</div><div class="kpi-value" id="prod-max">—</div><div class="kpi-delta" id="prod-max-name"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Categories</div><div class="kpi-value" id="prod-cats">—</div><div class="kpi-delta"></div></div>
+    </div>
+    <div id="products-grid" class="grid-2 mb"></div>
+  </div>
+
+  <!-- INVENTORY -->
+  <div class="page" id="page-inventory">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total SKUs</div><div class="kpi-value" id="inv-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Critical / Low</div><div class="kpi-value" id="inv-low">—</div><div class="kpi-delta delta-dn">Need reorder</div></div>
+      <div class="kpi-card"><div class="kpi-label">Idle Stock</div><div class="kpi-value" id="inv-idle">—</div><div class="kpi-delta delta-dn">Unused 15+ days</div></div>
+      <div class="kpi-card"><div class="kpi-label">Most Used</div><div class="kpi-value" id="inv-top">—</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="section-title">Active Stock</div><div id="inv-active-list"></div></div>
+      <div class="card"><div class="section-title">Idle Stock</div><div id="inv-idle-list"></div></div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="page" id="page-hero">
+    <div class="grid-2 mb" id="hero-banners"></div>
+    <div class="card"><div class="section-title">Hero Product History</div><div id="hero-table-wrap"></div></div>
+  </div>
+
+  <!-- TEAM -->
+  <div class="page" id="page-team">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Staff</div><div class="kpi-value" id="t-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Present Today</div><div class="kpi-value" id="t-present">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Late Logins</div><div class="kpi-value" id="t-late">—</div><div class="kpi-delta delta-dn"></div></div>
+      <div class="kpi-card"><div class="kpi-label">On Leave</div><div class="kpi-value" id="t-leave">—</div></div>
+    </div>
+    <div id="emp-cards-list" class="mb"></div>
+    <div class="card"><div class="section-title">Attendance Table</div><div id="emp-table-wrap"></div></div>
+  </div>
+
+  <!-- CSAT -->
+  <div class="page" id="page-csat">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Overall Rating</div><div class="kpi-value" id="csat-rating">—</div><div class="kpi-delta delta-up"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Reviews</div><div class="kpi-value" id="csat-total">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">5-Star Share</div><div class="kpi-value" id="csat-5star">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Open Complaints</div><div class="kpi-value" id="csat-complaints">—</div><div class="kpi-delta delta-dn"></div></div>
+    </div>
+    <div class="grid-65 mb">
+      <div class="card"><div class="card-hd"><span class="card-title">Satisfaction Trend</span></div><div class="chart-wrap"><canvas id="c-csat"></canvas></div></div>
+      <div class="card" style="text-align:center;padding:28px 22px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px;">Overall Score</div>
+        <div class="csat-num" id="csat-big-num">—</div>
+        <div class="csat-stars" id="csat-stars">☆☆☆☆☆</div>
+        <div style="font-size:11px;color:var(--text-3)" id="csat-review-count">— reviews</div>
+        <div id="csat-bars" style="margin-top:20px;text-align:left;"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="section-title">Recent Praise</div><div id="reviews-pos"></div></div>
+      <div class="card"><div class="section-title">Complaints</div><div id="reviews-neg"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────
+// CONFIG & STATE
+// ──────────────────────────────────────────────────────────────
+let SHEET_ID = localStorage.getItem('anteiku_sheet_id') || '';
+let API_KEY  = localStorage.getItem('anteiku_api_key')  || '';
+let DATA = {};
+const charts = {};
+
+const COLORS = { gold:'#C9A84C', goldDim:'rgba(201,168,76,0.15)', goldFill:'rgba(201,168,76,0.07)',
+  sage:'#6B8F71', rose:'#A05A52', blue:'#4A6FA5', amber:'#C97C2A',
+  grid:'rgba(255,255,255,0.04)', tick:'#5E5C58' };
+
+Chart.defaults.color = COLORS.tick;
+Chart.defaults.font.family = "'Outfit', sans-serif";
+Chart.defaults.font.size = 11;
+
+// ──────────────────────────────────────────────────────────────
+// SAMPLE DATA (fallback)
+// ──────────────────────────────────────────────────────────────
+const SAMPLE = {
+  dailySales: [
+    {date:'2026-03-01',day:'Sunday',rev:21800,orders:168,dine:12000,takeaway:6200,delivery:3600,notes:'Strong weekend'},
+    {date:'2026-03-02',day:'Monday',rev:14200,orders:110,dine:8000,takeaway:4200,delivery:2000,notes:''},
+    {date:'2026-03-03',day:'Tuesday',rev:16800,orders:128,dine:9500,takeaway:5100,delivery:2200,notes:''},
+    {date:'2026-03-04',day:'Wednesday',rev:13600,orders:104,dine:7800,takeaway:4000,delivery:1800,notes:''},
+    {date:'2026-03-05',day:'Thursday',rev:17200,orders:132,dine:9800,takeaway:5200,delivery:2200,notes:''},
+    {date:'2026-03-06',day:'Friday',rev:18240,orders:143,dine:10400,takeaway:5600,delivery:2240,notes:'Today'},
+  ],
+  inventory: [
+    {name:'All-Purpose Flour',cat:'Dry Goods',unit:'kg',inStock:10,minLevel:20,usage:140,lastUsed:'2026-03-06',status:'CRITICAL'},
+    {name:'Unsalted Butter',cat:'Dairy',unit:'kg',inStock:18,minLevel:15,usage:52,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Oat Milk',cat:'Specialty Milk',unit:'L',inStock:4,minLevel:10,usage:248,lastUsed:'2026-03-06',status:'CRITICAL'},
+    {name:'Almond Milk',cat:'Specialty Milk',unit:'L',inStock:22,minLevel:10,usage:192,lastUsed:'2026-03-05',status:'OK'},
+    {name:'Lactose-Free Milk',cat:'Specialty Milk',unit:'L',inStock:16,minLevel:8,usage:144,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Zero Sugar Milk',cat:'Specialty Milk',unit:'L',inStock:6,minLevel:8,usage:118,lastUsed:'2026-03-05',status:'CRITICAL'},
+    {name:'Eggs',cat:'Dairy',unit:'trays',inStock:18,minLevel:10,usage:96,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Valrhona Dark Choco',cat:'Confectionery',unit:'kg',inStock:14,minLevel:10,usage:40,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Coffee Beans (S.O.)',cat:'Coffee',unit:'kg',inStock:8,minLevel:6,usage:22,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Granulated Sugar',cat:'Dry Goods',unit:'kg',inStock:42,minLevel:15,usage:55,lastUsed:'2026-03-06',status:'OK'},
+    {name:'Hazelnut Syrup',cat:'Flavouring',unit:'bottles',inStock:6,minLevel:2,usage:0,lastUsed:'2026-02-12',status:'IDLE'},
+    {name:'Blueberry Compote',cat:'Fruit',unit:'jars',inStock:8,minLevel:2,usage:0,lastUsed:'2026-02-05',status:'IDLE'},
+    {name:'Rose Water',cat:'Flavouring',unit:'bottles',inStock:4,minLevel:2,usage:0,lastUsed:'2026-02-01',status:'IDLE'},
+  ],
+  products: [
+    {name:'Single Origin Pour-over',cat:'Beverages',price:110,active:'YES'},
+    {name:'Espresso',cat:'Beverages',price:80,active:'YES'},
+    {name:'Flat White',cat:'Beverages',price:130,active:'YES'},
+    {name:'Oat Milk Latte',cat:'Specialty Milk',price:150,active:'YES'},
+    {name:'Almond Milk Cappuccino',cat:'Specialty Milk',price:140,active:'YES'},
+    {name:'Lactose-Free Latte',cat:'Specialty Milk',price:140,active:'YES'},
+    {name:'Zero Sugar Cold Brew',cat:'Specialty Milk',price:160,active:'YES'},
+    {name:'Japanese Matcha',cat:'Beverages',price:120,active:'YES'},
+    {name:'Premium Loose Leaf Tea',cat:'Beverages',price:90,active:'YES'},
+    {name:'Butter Croissant',cat:'Breads',price:80,active:'YES'},
+    {name:'Almond Croissant',cat:'Breads',price:110,active:'YES'},
+    {name:'Sourdough Loaf',cat:'Breads',price:180,active:'YES'},
+    {name:'Multigrain Loaf',cat:'Breads',price:160,active:'YES'},
+    {name:'Brioche Pull-Apart',cat:'Breads',price:200,active:'YES'},
+    {name:'Dark Choco Truffle (slice)',cat:'Cakes',price:180,active:'YES'},
+    {name:'Choco Truffle Cake (1kg)',cat:'Cakes',price:1100,active:'YES'},
+    {name:'Strawberry Cream (1kg)',cat:'Cakes',price:1200,active:'YES'},
+    {name:'Custom Celebration Cake',cat:'Cakes',price:2400,active:'YES'},
+    {name:'Custom Tiered Cake',cat:'Cakes',price:3200,active:'YES'},
+    {name:'Choco Chip Cookies (6pc)',cat:'Cookies',price:160,active:'YES'},
+    {name:'Brown Butter Shortbread',cat:'Cookies',price:200,active:'YES'},
+    {name:'Oat Milk (250ml)',cat:'Specialty Milk',price:60,active:'YES'},
+    {name:'Almond Milk (250ml)',cat:'Specialty Milk',price:70,active:'YES'},
+    {name:'Lactose-Free Milk (250ml)',cat:'Specialty Milk',price:55,active:'YES'},
+    {name:'Zero Sugar Milk (250ml)',cat:'Specialty Milk',price:60,active:'YES'},
+  ],
+  employees: [
+    {name:'Priya Sharma',role:'Head Baker & Patissier',join:'2023-01-10',totalLeave:18,taken:4,expected:'08:00',login:'08:02',onTime:'YES',active:'YES'},
+    {name:'Arun Kulkarni',role:'Barista & Beverage Lead',join:'2023-06-05',totalLeave:18,taken:7,expected:'09:00',login:'09:38',onTime:'LATE',active:'YES'},
+    {name:'Meera Nair',role:'Guest Experience & Cashier',join:'2023-09-20',totalLeave:18,taken:2,expected:'09:00',login:'08:55',onTime:'YES',active:'YES'},
+    {name:'Rohit Joshi',role:'Kitchen Assistant',join:'2024-02-15',totalLeave:18,taken:8,expected:'09:00',login:'ON LEAVE',onTime:'N/A',active:'YES'},
+    {name:'Dev Patil',role:'Delivery & Logistics',join:'2024-11-01',totalLeave:18,taken:3,expected:'09:00',login:'09:05',onTime:'YES',active:'YES'},
+  ],
+  reviews: [
+    {date:'2026-03-05',name:'Kavya R.',rating:5,text:'The pour-over here is extraordinary. Daily ritual now.',type:'Positive',resolved:'N/A'},
+    {date:'2026-03-04',name:'Sahil M.',rating:5,text:'Custom tiered cake was stunning. Sets the bar.',type:'Positive',resolved:'N/A'},
+    {date:'2026-03-03',name:'Nandini V.',rating:5,text:'Love the almond milk options. Perfect for me.',type:'Positive',resolved:'N/A'},
+    {date:'2026-03-05',name:'Anonymous',rating:2,text:'Waited 25 mins during rush. Needs better staffing.',type:'Complaint',resolved:'NO'},
+    {date:'2026-03-04',name:'Akash P.',rating:3,text:'Zero sugar milk unavailable despite being on menu.',type:'Complaint',resolved:'NO'},
+    {date:'2026-03-01',name:'Preethi S.',rating:3,text:'Delivery 30 min late. Team apologised, gave free item.',type:'Complaint',resolved:'YES'},
+    {date:'2026-03-02',name:'Riya K.',rating:5,text:'Sourdough is incredible. Best in Pune.',type:'Positive',resolved:'N/A'},
+    {date:'2026-03-02',name:'Varun M.',rating:4,text:'Great coffee, cozy space. Good for focused work.',type:'Positive',resolved:'N/A'},
+  ],
+  heroProducts: [
+    {period:'Mar 3-9 2026',type:'Week',name:'Single Origin Pour-over',units:418,revenue:45980,rating:4.9,repeat:'72%',notes:'Ethiopia Yirgacheffe'},
+    {period:'Mar 2026',type:'Month',name:'Dark Choco Truffle Cake',units:162,revenue:178200,rating:4.8,repeat:'68%',notes:'Valrhona'},
+    {period:'Feb 24-Mar 2',type:'Week',name:'Oat Milk Latte',units:390,revenue:58500,rating:4.7,repeat:'65%',notes:''},
+    {period:'Feb 2026',type:'Month',name:'Butter Croissant',units:1420,revenue:113600,rating:4.9,repeat:'70%',notes:''},
+  ],
+  monthlySummary: [
+    {month:'Apr 2025',rev:240000,target:300000,orders:1400,status:'Below'},
+    {month:'May 2025',rev:280000,target:300000,orders:1640,status:'Good'},
+    {month:'Jun 2025',rev:250000,target:300000,orders:1460,status:'Below'},
+    {month:'Jul 2025',rev:212000,target:300000,orders:1240,status:'Missed'},
+    {month:'Aug 2025',rev:224000,target:300000,orders:1320,status:'Below'},
+    {month:'Sep 2025',rev:264000,target:300000,orders:1540,status:'Below'},
+    {month:'Oct 2025',rev:310000,target:300000,orders:1820,status:'Good'},
+    {month:'Nov 2025',rev:362000,target:340000,orders:2120,status:'Excellent'},
+    {month:'Dec 2025',rev:584000,target:300000,orders:3400,status:'Excellent'},
+    {month:'Jan 2026',rev:330000,target:300000,orders:1940,status:'Good'},
+    {month:'Feb 2026',rev:300000,target:300000,orders:1760,status:'Met'},
+    {month:'Mar 2026',rev:368000,target:520000,orders:2140,status:'Ongoing'},
+  ]
+};
+
+// ──────────────────────────────────────────────────────────────
+// GOOGLE SHEETS FETCH
+// ──────────────────────────────────────────────────────────────
+// ── DEBUG LOG ────────────────────────────────────────────────
+const debugLog = [];
+function dbg(msg, data) {
+  debugLog.push({msg, data: JSON.stringify(data).slice(0,200)});
+  console.log('[Anteiku]', msg, data);
+}
+
+async function fetchSheet(sheetName) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text();
+    dbg(`fetchSheet FAILED [${sheetName}]`, {status: res.status, body: body.slice(0,300)});
+    throw new Error(`HTTP ${res.status}: ${body.slice(0,200)}`);
+  }
+  const json = await res.json();
+  const rows = json.values || [];
+  dbg(`fetchSheet OK [${sheetName}]`, {totalRows: rows.length, firstRow: rows[0], secondRow: rows[1], thirdRow: rows[2]});
+  return rows;
+}
+
+// Normalise a header string: lowercase, trim, remove special chars like ₹ () ?
+function normaliseKey(s) {
+  return String(s||'').toLowerCase().trim()
+    .replace(/[₹()?*]/g,'').replace(/\s+/g,' ').trim();
+}
+
+// Find which row index is the actual header row by looking for known keywords
+function findHeaderRow(rows, keywords) {
+  for (let i = 0; i < Math.min(rows.length, 6); i++) {
+    const rowNorm = (rows[i]||[]).map(normaliseKey);
+    const hits = keywords.filter(k => rowNorm.some(h => h.includes(k)));
+    if (hits.length >= Math.min(2, keywords.length)) {
+      dbg('findHeaderRow found at index', {index: i, row: rows[i]});
+      return i;
+    }
+  }
+  dbg('findHeaderRow fallback to row 2', {});
+  return 2; // fallback
+}
+
+// Fuzzy field lookup: find the value for a field by partial/normalised key match
+function getField(obj, ...candidates) {
+  for (const cand of candidates) {
+    const normCand = normaliseKey(cand);
+    for (const key of Object.keys(obj)) {
+      if (normaliseKey(key) === normCand) return obj[key];
+    }
+    // partial match fallback
+    for (const key of Object.keys(obj)) {
+      if (normaliseKey(key).includes(normCand) || normCand.includes(normaliseKey(key))) return obj[key];
+    }
+  }
+  return '';
+}
+
+function parseSheet(rows, keywords=[]) {
+  if (!rows || rows.length < 2) return [];
+  const headerIdx = keywords.length ? findHeaderRow(rows, keywords) : 2;
+  if (headerIdx >= rows.length - 1) return [];
+  const headers = rows[headerIdx];
+  const dataRows = rows.slice(headerIdx + 1).filter(r => r && r.some(c => String(c||'').trim()));
+  dbg('parseSheet', {headers, dataRowCount: dataRows.length, firstDataRow: dataRows[0]});
+  return dataRows.map(r => {
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[String(h).trim()] = String(r[i] || '').trim();
+    });
+    return obj;
+  });
+}
+
+async function loadFromSheets() {
+  try {
+    const [salesRows, invRows, prodRows, empRows, revRows, heroRows, monthRows] = await Promise.all([
+      fetchSheet('Daily Sales'), fetchSheet('Inventory'), fetchSheet('Products & Prices'),
+      fetchSheet('Employees'), fetchSheet('Reviews & CSAT'), fetchSheet('Hero Products'),
+      fetchSheet('Monthly Summary')
+    ]);
+
+    const num = v => { const n = parseFloat(String(v||'').replace(/[₹,\s]/g,'')); return isNaN(n)?0:n; };
+
+    const salesData = parseSheet(salesRows, ['date','day','revenue','orders']);
+    dbg('salesData parsed', {count: salesData.length, sample: salesData[0]});
+    DATA.dailySales = salesData.filter(r => getField(r,'Date')).map(r => ({
+      date:    getField(r, 'Date'),
+      day:     getField(r, 'Day'),
+      rev:     num(getField(r, 'Total Revenue', 'Revenue', 'Total Rev')),
+      orders:  num(getField(r, 'Total Orders', 'Orders')),
+      dine:    num(getField(r, 'Dine-in', 'Dine in', 'Dine')),
+      takeaway:num(getField(r, 'Takeaway')),
+      delivery:num(getField(r, 'Delivery', 'Online')),
+      notes:   getField(r, 'Notes') || ''
+    })).filter(r => r.rev > 0 || r.orders > 0);
+
+    const invData = parseSheet(invRows, ['item','category','stock','unit']);
+    dbg('invData parsed', {count: invData.length, sample: invData[0]});
+    DATA.inventory = invData.filter(r => getField(r,'Item Name','Item')).map(r => ({
+      name:     getField(r, 'Item Name', 'Item'),
+      cat:      getField(r, 'Category'),
+      unit:     getField(r, 'Unit'),
+      inStock:  num(getField(r, 'In Stock', 'Stock')),
+      minLevel: num(getField(r, 'Min Level', 'Min Stock Level', 'Minimum')),
+      usage:    num(getField(r, 'Monthly Usage', 'Usage')),
+      lastUsed: getField(r, 'Last Used', 'Last Used Date'),
+      status:   getField(r, 'Status')
+    })).filter(r => r.name);
+
+    const prodData = parseSheet(prodRows, ['product','category','price','active']);
+    dbg('prodData parsed', {count: prodData.length, sample: prodData[0]});
+    DATA.products = prodData.filter(r => getField(r,'Product Name','Product')).map(r => ({
+      name:   getField(r, 'Product Name', 'Product'),
+      cat:    getField(r, 'Category'),
+      price:  num(getField(r, 'Price', 'Price (Rs)', 'Price (₹)')),
+      active: getField(r, 'Active?', 'Active')
+    })).filter(p => !p.active || p.active.toUpperCase() === 'YES');
+
+    const empData = parseSheet(empRows, ['name','role','join','leave']);
+    dbg('empData parsed', {count: empData.length, sample: empData[0]});
+    DATA.employees = empData.filter(r => getField(r,'Name')).map(r => ({
+      name:       getField(r, 'Name'),
+      role:       getField(r, 'Role'),
+      join:       getField(r, 'Join Date', 'Joining Date', 'Joined'),
+      totalLeave: num(getField(r, 'Total Leaves', 'Total Leave', 'Leaves')) || 18,
+      taken:      num(getField(r, 'Leaves Taken', 'Taken')),
+      expected:   getField(r, 'Expected Login', 'Expected'),
+      login:      getField(r, 'Today Login', 'Login', 'Today'),
+      onTime:     getField(r, 'On Time?', 'On Time'),
+      active:     getField(r, 'Active?', 'Active')
+    })).filter(e => !e.active || e.active.toUpperCase() === 'YES');
+
+    const revData = parseSheet(revRows, ['date','guest','rating','review','type']);
+    dbg('revData parsed', {count: revData.length, sample: revData[0]});
+    DATA.reviews = revData.filter(r => getField(r,'Guest Name','Guest','Name')).map(r => ({
+      date:     getField(r, 'Date'),
+      name:     getField(r, 'Guest Name', 'Guest', 'Name'),
+      rating:   num(getField(r, 'Rating (1-5)', 'Rating')),
+      text:     getField(r, 'Review Text', 'Review', 'Comment'),
+      type:     getField(r, 'Type'),
+      resolved: getField(r, 'Resolved?', 'Resolved')
+    })).filter(r => r.rating > 0);
+
+    const heroData = parseSheet(heroRows, ['period','type','product','units','revenue']);
+    dbg('heroData parsed', {count: heroData.length, sample: heroData[0]});
+    DATA.heroProducts = heroData.filter(r => getField(r,'Product Name','Product')).map(r => ({
+      period:  getField(r, 'Period'),
+      type:    getField(r, 'Type'),
+      name:    getField(r, 'Product Name', 'Product'),
+      units:   num(getField(r, 'Units Sold', 'Units')),
+      revenue: num(getField(r, 'Revenue', 'Revenue (Rs)', 'Revenue (₹)')),
+      rating:  num(getField(r, 'Avg Rating', 'Rating')),
+      repeat:  getField(r, 'Repeat %', 'Repeat'),
+      notes:   getField(r, 'Notes')
+    }));
+
+    const monthData = parseSheet(monthRows, ['month','revenue','target','orders','status']);
+    dbg('monthData parsed', {count: monthData.length, sample: monthData[0]});
+    DATA.monthlySummary = monthData.filter(r => getField(r,'Month')).map(r => ({
+      month:  getField(r, 'Month'),
+      rev:    num(getField(r, 'Revenue', 'Revenue (Rs)', 'Revenue (₹)')),
+      target: num(getField(r, 'Target', 'Target (Rs)', 'Target (₹)')),
+      orders: num(getField(r, 'Orders')),
+      status: getField(r, 'Status')
+    })).filter(r => r.month);
+
+    dbg('FINAL DATA COUNTS', {
+      dailySales: DATA.dailySales.length,
+      inventory: DATA.inventory.length,
+      products: DATA.products.length,
+      employees: DATA.employees.length,
+      reviews: DATA.reviews.length,
+      heroProducts: DATA.heroProducts.length,
+      monthlySummary: DATA.monthlySummary.length
+    });
+
+    return true;
+  } catch(e) {
+    dbg('loadFromSheets ERROR', {message: e.message, stack: e.stack?.slice(0,400)});
+    console.error('Sheets error:', e);
+    return false;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// CONNECT & SKIP
+// ──────────────────────────────────────────────────────────────
+async function connectSheets() {
+  const sid = document.getElementById('input-sheet-id').value.trim();
+  const ak  = document.getElementById('input-api-key').value.trim();
+  const msg = document.getElementById('conn-status');
+
+  if (!sid || !ak) { msg.className='status-msg err'; msg.textContent='Please enter both Spreadsheet ID and API Key.'; return; }
+
+  SHEET_ID = sid; API_KEY = ak;
+  msg.className='status-msg ok'; msg.textContent='Connecting...';
+
+  const ok = await loadFromSheets();
+  if (ok) {
+    localStorage.setItem('anteiku_sheet_id', sid);
+    localStorage.setItem('anteiku_api_key', ak);
+    msg.className='status-msg ok'; msg.textContent='✓ Connected! Loading dashboard...';
+    document.getElementById('conn-indicator').className='conn-badge connected';
+    document.getElementById('conn-indicator').textContent='● Live from Sheets';
+    document.getElementById('data-source-label').textContent='Google Sheets';
+    setTimeout(() => { document.getElementById('setup-modal').classList.add('hidden'); renderAll(); }, 800);
+  } else {
+    msg.className='status-msg err'; msg.textContent='Connection failed. Check your Sheet ID and API Key, and make sure the sheet is public (Viewer access).';
+  }
+}
+
+function skipSetup() {
+  DATA = JSON.parse(JSON.stringify(SAMPLE));
+  document.getElementById('setup-modal').classList.add('hidden');
+  renderAll();
+}
+
+function openSetup() {
+  document.getElementById('setup-modal').classList.remove('hidden');
+  if (SHEET_ID) document.getElementById('input-sheet-id').value = SHEET_ID;
+  if (API_KEY)  document.getElementById('input-api-key').value = API_KEY;
+}
+
+// ──────────────────────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────────────────────
+const fmt = v => '₹'+Number(v).toLocaleString('en-IN');
+const fmtK = v => v>=100000 ? '₹'+(v/100000).toFixed(1)+'L' : v>=1000 ? '₹'+(v/1000).toFixed(0)+'K' : fmt(v);
+const badgeClass = s => ({
+  'Excellent':'b-green','Good':'b-green','Met':'b-blue','Below':'b-amber',
+  'Missed':'b-red','Ongoing':'b-gold','CRITICAL':'b-red','LOW':'b-amber',
+  'OK':'b-green','IDLE':'b-dim','YES':'b-blue','LATE':'b-amber','N/A':'b-dim',
+  'Positive':'b-green','Complaint':'b-red','NO':'b-red'
+}[s] || 'b-dim');
+
+function makeChart(id, cfg) {
+  if(charts[id]) charts[id].destroy();
+  const el = document.getElementById(id);
+  if(!el) return;
+  charts[id] = new Chart(el, cfg);
+}
+
+const axXY = (yFmt) => ({
+  x:{grid:{color:COLORS.grid,drawBorder:false},ticks:{color:COLORS.tick}},
+  y:{grid:{color:COLORS.grid,drawBorder:false},ticks:{color:COLORS.tick,callback:yFmt||(v=>v)}}
+});
+
+// ──────────────────────────────────────────────────────────────
+// RENDER ALL
+// ──────────────────────────────────────────────────────────────
+function renderAll() {
+  renderDashboard(); renderSales(); renderPerformance();
+  renderProducts(); renderInventory(); renderHero();
+  renderTeam(); renderCsat();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  const ds = DATA.dailySales || SAMPLE.dailySales;
+  const last = ds[ds.length-1] || {};
+  const prev = ds[ds.length-2] || {};
+
+  document.getElementById('kpi-today-rev').textContent = fmtK(last.rev||0);
+  const revDelta = prev.rev ? Math.round((last.rev-prev.rev)/prev.rev*100) : 0;
+  document.getElementById('kpi-today-delta').textContent = `${revDelta>=0?'↑':'↓'} ${Math.abs(revDelta)}% vs yesterday`;
+  document.getElementById('kpi-today-delta').className = 'kpi-delta '+(revDelta>=0?'delta-up':'delta-dn');
+
+  document.getElementById('kpi-today-orders').textContent = last.orders||0;
+  document.getElementById('kpi-orders-delta').textContent = `Avg ₹${last.orders?Math.round(last.rev/last.orders):0}/order`;
+
+  const revs = DATA.reviews || SAMPLE.reviews;
+  const avgR = revs.length ? (revs.reduce((a,r)=>a+r.rating,0)/revs.length).toFixed(1) : '—';
+  document.getElementById('kpi-rating').textContent = avgR;
+  document.getElementById('kpi-rating-sub').textContent = `${revs.length} total reviews`;
+
+  const emps = DATA.employees || SAMPLE.employees;
+  const present = emps.filter(e=>e.login!=='ON LEAVE'&&e.login!=='').length;
+  document.getElementById('kpi-team').textContent = `${present}/${emps.length}`;
+  const late = emps.filter(e=>e.onTime==='LATE').length;
+  document.getElementById('kpi-team-sub').textContent = late ? `${late} late login${late>1?'s':''}` : 'All on time';
+  document.getElementById('kpi-team-sub').className = 'kpi-delta '+(late?'delta-dn':'delta-up');
+
+  // Revenue chart
+  makeChart('c-rev',{type:'bar',data:{
+    labels:ds.map(d=>d.day?.slice(0,3)||d.date?.slice(5)||''),
+    datasets:[{label:'Revenue',data:ds.map(d=>d.rev),backgroundColor:COLORS.goldDim,borderColor:COLORS.gold,borderWidth:1,borderRadius:4}]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:axXY(v=>fmtK(v))}});
+
+  // Category chart
+  const prods = DATA.products || SAMPLE.products;
+  const cats = {}; prods.forEach(p=>{ cats[p.cat]=(cats[p.cat]||0)+1; });
+  makeChart('c-cat',{type:'doughnut',data:{
+    labels:Object.keys(cats),
+    datasets:[{data:Object.values(cats),backgroundColor:['rgba(201,168,76,0.7)','rgba(74,111,165,0.7)','rgba(107,143,113,0.7)','rgba(160,90,82,0.6)','rgba(201,124,42,0.6)'],borderWidth:1,borderColor:'#16161C'}]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10}}}}});
+
+  // Top items (static sample)
+  const topItems = [
+    {emoji:'☕',name:'Pour-over Coffee',meta:'62 served · ₹6,820',pct:85},
+    {emoji:'🥐',name:'Butter Croissant',meta:'54 sold · ₹4,320',pct:70},
+    {emoji:'🌾',name:'Oat Milk Latte',meta:'38 served · ₹5,700',pct:58},
+    {emoji:'🎂',name:'Dark Choco Truffle',meta:'18 slices · ₹3,240',pct:42},
+  ];
+  document.getElementById('top-items-list').innerHTML = topItems.map(t=>`
+    <div class="inv-row"><div class="inv-emoji">${t.emoji}</div>
+    <div class="inv-body"><div class="inv-name">${t.name}</div><div class="inv-meta">${t.meta}</div>
+    <div class="prog"><div class="prog-f" style="width:${t.pct}%;background:var(--gold)"></div></div></div></div>`).join('');
+
+  // Alerts
+  const inv = DATA.inventory || SAMPLE.inventory;
+  const critical = inv.filter(i=>i.status==='CRITICAL'||i.status==='LOW');
+  const idle = inv.filter(i=>i.status==='IDLE');
+  let alertsHTML = '';
+  critical.slice(0,2).forEach(i=>{ alertsHTML+=`<div class="inv-row"><div class="inv-emoji">⚠️</div><div class="inv-body"><div class="inv-name">${i.name} — Low Stock</div><div class="inv-meta">Only ${i.inStock}${i.unit} remaining</div></div><span class="badge b-red">Urgent</span></div>`; });
+  idle.slice(0,1).forEach(i=>{ alertsHTML+=`<div class="inv-row"><div class="inv-emoji">😴</div><div class="inv-body"><div class="inv-name">${i.name}</div><div class="inv-meta">Idle — last used ${i.lastUsed}</div></div><span class="badge b-amber">Idle</span></div>`; });
+  emps.filter(e=>e.onTime==='LATE').slice(0,1).forEach(e=>{ alertsHTML+=`<div class="inv-row"><div class="inv-emoji">⏰</div><div class="inv-body"><div class="inv-name">${e.name} — Late Login</div><div class="inv-meta">Checked in at ${e.login}</div></div><span class="badge b-amber">Late</span></div>`; });
+  document.getElementById('alerts-list').innerHTML = alertsHTML || '<div class="no-data"><span>✅</span>No alerts today</div>';
+
+  // Hero week banner
+  const heroes = DATA.heroProducts || SAMPLE.heroProducts;
+  const wHero = heroes.find(h=>h.type==='Week') || heroes[0];
+  if(wHero) document.getElementById('hero-week-banner').innerHTML = `
+    <div style="position:absolute;right:-10px;bottom:-10px;font-size:90px;opacity:0.06">☕</div>
+    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">⭐ Hero · This Week</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--text-1);margin-bottom:4px;">${wHero.name}</div>
+    <div style="font-size:11px;color:var(--text-3);margin-bottom:18px;">${wHero.period}${wHero.notes?' · '+wHero.notes:''}</div>
+    <div style="display:flex;gap:20px;">
+      <div><div class="hs-label">SERVED</div><div class="hs-val">${wHero.units}</div></div>
+      <div><div class="hs-label">REVENUE</div><div class="hs-val">${fmtK(wHero.revenue)}</div></div>
+      <div><div class="hs-label">RATING</div><div class="hs-val">${wHero.rating}</div></div>
+    </div>`;
+}
+
+// ── SALES ────────────────────────────────────────────────────
+function renderSales() {
+  const ds = DATA.dailySales || SAMPLE.dailySales;
+  const ms = DATA.monthlySummary || SAMPLE.monthlySummary;
+  const last = ds[ds.length-1]||{};
+  const weekRev = ds.reduce((a,r)=>a+r.rev,0);
+  const monthRev = ms[ms.length-1]?.rev||0;
+  const yearRev = ms.reduce((a,r)=>a+r.rev,0);
+
+  document.getElementById('s-today').textContent = fmtK(last.rev||0);
+  document.getElementById('s-week').textContent = fmtK(weekRev);
+  document.getElementById('s-month').textContent = fmtK(monthRev);
+  document.getElementById('s-year').textContent = fmtK(yearRev);
+
+  makeChart('c-daily',{type:'line',data:{
+    labels:ds.map(d=>d.day?.slice(0,3)||d.date||''),
+    datasets:[{label:'This Week',data:ds.map(d=>d.rev),borderColor:COLORS.gold,backgroundColor:COLORS.goldFill,fill:true,tension:0.4,pointRadius:4,pointBackgroundColor:COLORS.gold}]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:axXY(v=>fmtK(v))}});
+
+  const rec2026 = ms.filter(m=>m.month.includes('2026'));
+  makeChart('c-monthly',{type:'bar',data:{
+    labels:rec2026.map(m=>m.month.replace(' 2026','')),
+    datasets:[{data:rec2026.map(m=>m.rev),backgroundColor:COLORS.goldDim,borderColor:COLORS.gold,borderWidth:1,borderRadius:4}]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:axXY(v=>fmtK(v))}});
+
+  document.getElementById('sales-table-wrap').innerHTML = `<table>
+    <thead><tr><th>Date</th><th>Day</th><th>Revenue</th><th>Orders</th><th>Avg Order</th><th>Notes</th></tr></thead>
+    <tbody>${[...ds].reverse().map(r=>`<tr><td><strong>${r.date}</strong></td><td>${r.day}</td><td><strong>${fmt(r.rev)}</strong></td><td>${r.orders}</td><td>₹${r.orders?Math.round(r.rev/r.orders):0}</td><td>${r.notes}</td></tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── PERFORMANCE ──────────────────────────────────────────────
+function renderPerformance() {
+  const ms = DATA.monthlySummary || SAMPLE.monthlySummary;
+  const sorted = [...ms].sort((a,b)=>b.rev-a.rev);
+  const best=sorted[0]; const worst=sorted[sorted.length-1];
+  const avg = ms.reduce((a,m)=>a+m.rev,0)/ms.length;
+  const curr = ms[ms.length-1];
+
+  document.getElementById('p-best').textContent = best.month.split(' ')[0];
+  document.getElementById('p-best-v').textContent = fmtK(best.rev)+' · '+best.month.split(' ')[1];
+  document.getElementById('p-slow').textContent = worst.month.split(' ')[0];
+  document.getElementById('p-slow-v').textContent = fmtK(worst.rev)+' · '+worst.month.split(' ')[1];
+  document.getElementById('p-avg').textContent = fmtK(Math.round(avg));
+  const pct = curr.target ? Math.round(curr.rev/curr.target*100) : 0;
+  document.getElementById('p-curr').textContent = pct+'%';
+
+  makeChart('c-yearperf',{type:'bar',data:{
+    labels:ms.map(m=>m.month.slice(0,3)),
+    datasets:[{
+      label:'Revenue',data:ms.map(m=>m.rev),
+      backgroundColor:ms.map(m=>m.month===best.month?'rgba(107,143,113,0.55)':m.month===worst.month?'rgba(160,90,82,0.45)':'rgba(201,168,76,0.25)'),
+      borderColor:ms.map(m=>m.month===best.month?COLORS.sage:m.month===worst.month?COLORS.rose:COLORS.gold),
+      borderWidth:1,borderRadius:3
+    }]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:axXY(v=>fmtK(v))}});
+
+  document.getElementById('monthly-table-wrap').innerHTML = `<table>
+    <thead><tr><th>Month</th><th>Revenue</th><th>Target</th><th>Achievement</th><th>Orders</th><th>Status</th></tr></thead>
+    <tbody>${[...ms].reverse().map(m=>`<tr>
+      <td><strong>${m.month}</strong></td><td><strong>${fmt(m.rev)}</strong></td><td>${fmt(m.target)}</td>
+      <td>${m.target?Math.round(m.rev/m.target*100)+'%':'—'}</td><td>${m.orders}</td>
+      <td><span class="badge ${badgeClass(m.status)}">${m.status}</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// ── PRODUCTS ─────────────────────────────────────────────────
+function renderProducts() {
+  const prods = DATA.products || SAMPLE.products;
+  const cats = [...new Set(prods.map(p=>p.cat))];
+  document.getElementById('prod-total').textContent = prods.length;
+  const avg = prods.reduce((a,p)=>a+p.price,0)/prods.length;
+  document.getElementById('prod-avg').textContent = fmt(Math.round(avg));
+  const maxP = prods.reduce((a,p)=>p.price>a.price?p:a, prods[0]);
+  document.getElementById('prod-max').textContent = fmt(maxP?.price||0);
+  document.getElementById('prod-max-name').textContent = maxP?.name||'';
+  document.getElementById('prod-cats').textContent = cats.length;
+
+  const catIcons = {Beverages:'☕','Specialty Milk':'🥛',Breads:'🥐',Cakes:'🎂',Cookies:'🍪'};
+  document.getElementById('products-grid').innerHTML = cats.map(cat=>{
+    const items = prods.filter(p=>p.cat===cat);
+    return `<div class="card"><div class="section-title">${catIcons[cat]||'◎'} ${cat}</div>
+      ${items.map(p=>`<div class="price-row"><div class="price-item-name"><span>${catIcons[cat]||'•'}</span>${p.name}</div><div class="price-val">₹${p.price.toLocaleString()}</div></div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── INVENTORY ────────────────────────────────────────────────
+function renderInventory() {
+  const inv = DATA.inventory || SAMPLE.inventory;
+  const critical = inv.filter(i=>i.status==='CRITICAL'||i.status==='LOW');
+  const idle = inv.filter(i=>i.status==='IDLE');
+  const active = inv.filter(i=>i.status!=='IDLE');
+  const topItem = [...inv].sort((a,b)=>b.usage-a.usage)[0];
+
+  document.getElementById('inv-total').textContent = inv.length;
+  document.getElementById('inv-low').textContent = critical.length;
+  document.getElementById('inv-idle').textContent = idle.length+' items';
+  document.getElementById('inv-top').textContent = topItem?.name?.split(' ')[0]||'—';
+
+  const emojiMap = {'Flour':'🌾','Butter':'🧈','Oat':'🌾','Almond':'🌰','Lactose':'🥛','Zero':'⬜','Egg':'🥚','Choco':'🍫','Coffee':'☕','Sugar':'🍬','Hazelnut':'🫙','Blueberry':'🫐','Rose':'🌹'};
+  const getEmoji = n => { for(const k in emojiMap) if(n.includes(k)) return emojiMap[k]; return '📦'; };
+  const maxUsage = Math.max(...active.map(i=>i.usage),1);
+
+  document.getElementById('inv-active-list').innerHTML = active.map(i=>`
+    <div class="inv-row"><div class="inv-emoji">${getEmoji(i.name)}</div>
+    <div class="inv-body"><div class="inv-name">${i.name}</div>
+    <div class="inv-meta">In stock: ${i.inStock}${i.unit} · Used: ${i.usage}${i.unit}/mo</div>
+    <div class="prog"><div class="prog-f" style="width:${Math.round(i.inStock/Math.max(i.inStock,i.minLevel,1)*100)}%;background:${i.status==='CRITICAL'?'var(--rose)':i.status==='LOW'?'var(--amber)':'var(--sage)'}"></div></div></div>
+    <span class="badge ${badgeClass(i.status)}">${i.status}</span></div>`).join('');
+
+  document.getElementById('inv-idle-list').innerHTML = idle.length ? idle.map(i=>`
+    <div class="inv-row"><div class="inv-emoji">${getEmoji(i.name)}</div>
+    <div class="inv-body"><div class="inv-name">${i.name}</div>
+    <div class="inv-meta">Last used: ${i.lastUsed} · ${i.inStock} ${i.unit} in stock</div></div>
+    <span class="badge b-amber">Idle</span></div>`).join('') +
+    `<div style="margin-top:16px;padding:14px;background:var(--bg4);border-radius:8px;border:1px solid rgba(201,168,76,0.1)">
+      <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">💡 Use it up</div>
+      <div style="font-size:12px;color:var(--text-2);line-height:1.9">${idle.map(i=>`• Feature <strong style="color:var(--text-1)">${i.name}</strong> in this week's specials`).join('<br>')}</div>
+    </div>`
+    : '<div class="no-data"><span>✅</span>No idle stock — great job!</div>';
+}
+
+// ── HERO ─────────────────────────────────────────────────────
+function renderHero() {
+  const heroes = DATA.heroProducts || SAMPLE.heroProducts;
+  const wHero = heroes.find(h=>h.type==='Week')||heroes[0];
+  const mHero = heroes.find(h=>h.type==='Month')||heroes[1]||heroes[0];
+
+  document.getElementById('hero-banners').innerHTML = [
+    {h:wHero,label:'⭐ Hero of the Week',color:'rgba(201,168,76,0.22)',valColor:'var(--gold)'},
+    {h:mHero,label:'🏅 Hero of the Month',color:'rgba(74,111,165,0.2)',valColor:'#7AABE5'}
+  ].map(({h,label,color,valColor})=>`
+    <div style="background:linear-gradient(145deg,#130E04,#0D0D0F);border:1px solid ${color};border-radius:var(--radius);padding:28px;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:-10px;bottom:-10px;font-size:90px;opacity:0.05">☕</div>
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:${valColor};margin-bottom:12px;">${label}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--text-1);margin-bottom:4px;">${h?.name||'—'}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:20px;">${h?.period||''}</div>
+      <div style="display:flex;gap:28px;">
+        <div><div style="font-size:9px;letter-spacing:1.2px;color:var(--text-3)">UNITS</div><div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:${valColor}">${h?.units||0}</div></div>
+        <div><div style="font-size:9px;letter-spacing:1.2px;color:var(--text-3)">REVENUE</div><div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:${valColor}">${fmtK(h?.revenue||0)}</div></div>
+        <div><div style="font-size:9px;letter-spacing:1.2px;color:var(--text-3)">RATING</div><div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:${valColor}">${h?.rating||0}</div></div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('hero-table-wrap').innerHTML = `<table>
+    <thead><tr><th>Period</th><th>Type</th><th>Product</th><th>Units</th><th>Revenue</th><th>Rating</th><th>Repeat</th></tr></thead>
+    <tbody>${heroes.map(h=>`<tr>
+      <td><strong>${h.period}</strong></td>
+      <td><span class="badge ${h.type==='Week'?'b-gold':'b-blue'}">${h.type}</span></td>
+      <td><strong>${h.name}</strong></td><td>${h.units}</td>
+      <td><strong>${fmt(h.revenue)}</strong></td><td>⭐ ${h.rating}</td><td>${h.repeat}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// ── TEAM ─────────────────────────────────────────────────────
+function renderTeam() {
+  const emps = DATA.employees || SAMPLE.employees;
+  const present = emps.filter(e=>e.login!=='ON LEAVE'&&e.login!=='').length;
+  const late = emps.filter(e=>e.onTime==='LATE').length;
+  const onLeave = emps.filter(e=>e.login==='ON LEAVE').length;
+
+  document.getElementById('t-total').textContent = emps.length;
+  document.getElementById('t-present').textContent = present;
+  document.getElementById('t-late').textContent = late;
+  document.getElementById('t-leave').textContent = onLeave;
+
+  const colors = ['rgba(201,168,76,0.3)','rgba(74,111,165,0.3)','rgba(107,143,113,0.3)','rgba(160,90,82,0.3)','rgba(201,124,42,0.3)'];
+  const textColors = ['var(--gold)','#7AABE5','var(--sage)','var(--rose)','#D4924A'];
+  document.getElementById('emp-cards-list').innerHTML = emps.map((e,i)=>{
+    const initials = e.name.split(' ').map(n=>n[0]).join('');
+    const balance = e.totalLeave - e.taken;
+    const isLeave = e.login==='ON LEAVE';
+    return `<div class="emp-row">
+      <div class="emp-av" style="background:${colors[i%colors.length]};color:${textColors[i%textColors.length]};border:1px solid ${colors[i%colors.length]}">${initials}</div>
+      <div style="flex:1">
+        <div class="emp-name">${e.name}</div>
+        <div class="emp-role">${e.role}</div>
+        <div class="emp-tags">
+          ${isLeave?'<span class="badge b-red">On Leave</span>':'<span class="badge b-green">Present</span>'}
+          ${e.onTime==='LATE'?'<span class="badge b-amber">Late</span>':e.onTime==='YES'?'<span class="badge b-blue">On Time</span>':''}
+        </div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Joined: ${e.join} · Login today: ${e.login}</div>
+      </div>
+      <div class="emp-data">
+        <div class="emp-leave">${balance} <span style="font-size:13px;color:var(--text-3)">/ ${e.totalLeave}</span></div>
+        <div class="emp-leave-label">Leave Balance</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('emp-table-wrap').innerHTML = `<table>
+    <thead><tr><th>Name</th><th>Role</th><th>Joined</th><th>Total Leaves</th><th>Taken</th><th>Balance</th><th>Today Login</th><th>Status</th></tr></thead>
+    <tbody>${emps.map(e=>`<tr>
+      <td><strong>${e.name}</strong></td><td>${e.role}</td><td>${e.join}</td>
+      <td>${e.totalLeave}</td><td>${e.taken}</td><td><strong>${e.totalLeave-e.taken}</strong></td>
+      <td>${e.login}</td><td><span class="badge ${badgeClass(e.onTime)}">${e.onTime}</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// ── CSAT ─────────────────────────────────────────────────────
+function renderCsat() {
+  const revs = DATA.reviews || SAMPLE.reviews;
+  const avg = revs.length ? (revs.reduce((a,r)=>a+r.rating,0)/revs.length).toFixed(1) : 0;
+  const total = revs.length;
+  const fiveStar = Math.round(revs.filter(r=>r.rating===5).length/total*100);
+  const openComp = revs.filter(r=>r.type==='Complaint'&&r.resolved==='NO').length;
+
+  document.getElementById('csat-rating').textContent = avg;
+  document.getElementById('csat-total').textContent = total;
+  document.getElementById('csat-5star').textContent = fiveStar+'%';
+  document.getElementById('csat-complaints').textContent = openComp;
+  document.getElementById('csat-big-num').textContent = avg;
+  document.getElementById('csat-review-count').textContent = `${total} verified reviews`;
+  const stars = Math.round(avg);
+  document.getElementById('csat-stars').textContent = '★'.repeat(stars)+'☆'.repeat(5-stars);
+
+  const dist = [5,4,3,2,1].map(s=>({star:s,pct:Math.round(revs.filter(r=>r.rating===s).length/total*100)}));
+  document.getElementById('csat-bars').innerHTML = dist.map(d=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:11px;color:var(--text-3);width:50px">${d.star} ★</span>
+      <div class="prog" style="flex:1"><div class="prog-f" style="width:${d.pct}%;background:${d.star>=4?'var(--sage)':d.star===3?'var(--amber)':'var(--rose)'}"></div></div>
+      <span style="font-size:11px;color:var(--text-2);width:30px;text-align:right">${d.pct}%</span>
+    </div>`).join('');
+
+  makeChart('c-csat',{type:'line',data:{
+    labels:['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'],
+    datasets:[{data:[4.2,4.3,4.1,4.0,4.3,4.5,4.6,4.7,4.8,4.7,4.7,parseFloat(avg)],borderColor:COLORS.gold,backgroundColor:COLORS.goldFill,fill:true,tension:0.4,pointRadius:4,pointBackgroundColor:COLORS.gold,borderWidth:1.5}]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{...axXY(),y:{...axXY().y,min:3.5,max:5,ticks:{stepSize:0.5,color:COLORS.tick}}}}});
+
+  document.getElementById('reviews-pos').innerHTML = revs.filter(r=>r.type==='Positive').slice(0,3)
+    .map(r=>`<div class="review pos"><div class="review-meta"><span>${r.name}</span><span>${'★'.repeat(r.rating)}</span><span>${r.date}</span></div><div class="review-text">${r.text}</div></div>`).join('');
+
+  document.getElementById('reviews-neg').innerHTML = revs.filter(r=>r.type==='Complaint')
+    .map(r=>`<div class="review neg"><div class="review-meta"><span>${r.name}</span><span>${'★'.repeat(r.rating)}</span><span>${r.date}</span><span class="badge ${r.resolved==='YES'?'b-green':'b-red'}">${r.resolved==='YES'?'Resolved':'Open'}</span></div><div class="review-text">${r.text}</div></div>`).join('');
+}
+
+// ──────────────────────────────────────────────────────────────
+// NAVIGATION
+// ──────────────────────────────────────────────────────────────
+const pageMeta = {
+  dashboard:{t:'Good morning — Anteiku is open.',s:'Friday, 6 March 2026 · Daily operations overview'},
+  sales:{t:'Sales & Revenue',s:'Daily · Weekly · Monthly · Annual breakdown'},
+  performance:{t:'Monthly Performance',s:'How each month performed this year'},
+  products:{t:'Products & Pricing',s:'Full catalogue including specialty milk range'},
+  inventory:{t:'Inventory Management',s:'Stock levels · Usage · Idle alerts'},
+  hero:{t:'Hero Products',s:'Best performers by week and month'},
+  team:{t:'Team Management',s:'Attendance · Leaves · Login tracking'},
+  csat:{t:'Guest Satisfaction',s:'Ratings · Reviews · Complaint resolution'}
+};
+
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('pg-title').textContent = pageMeta[page].t;
+  document.getElementById('pg-sub').textContent = pageMeta[page].s;
+}
+
+function switchRevTab(el, period) {
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const ds = DATA.dailySales || SAMPLE.dailySales;
+  const ms = DATA.monthlySummary || SAMPLE.monthlySummary;
+  let labels, data;
+  if (period==='week') { labels=ds.map(d=>d.day?.slice(0,3)||''); data=ds.map(d=>d.rev); }
+  else if (period==='month') { const m=ms.filter(m=>m.month.includes('2026')); labels=m.map(m=>m.month.replace(' 2026','')); data=m.map(m=>m.rev); }
+  else { labels=ms.map(m=>m.month.slice(0,3)); data=ms.map(m=>m.rev); }
+  if(charts['c-rev']) { charts['c-rev'].data.labels=labels; charts['c-rev'].data.datasets[0].data=data; charts['c-rev'].update(); }
+}
+
+// ── DEBUG PANEL ──────────────────────────────────────────────
+function openDebug() {
+  const existing = document.getElementById('debug-modal');
+  if (existing) existing.remove();
+
+  const counts = {
+    'Daily Sales': (DATA.dailySales||[]).length,
+    'Inventory': (DATA.inventory||[]).length,
+    'Products': (DATA.products||[]).length,
+    'Employees': (DATA.employees||[]).length,
+    'Reviews': (DATA.reviews||[]).length,
+    'Hero Products': (DATA.heroProducts||[]).length,
+    'Monthly Summary': (DATA.monthlySummary||[]).length,
+  };
+
+  const sample = {
+    'Daily Sales': (DATA.dailySales||[])[0],
+    'Inventory': (DATA.inventory||[])[0],
+    'Products': (DATA.products||[])[0],
+    'Employees': (DATA.employees||[])[0],
+    'Reviews': (DATA.reviews||[])[0],
+  };
+
+  const source = document.getElementById('data-source-label')?.textContent || 'Unknown';
+
+  const countRows = Object.entries(counts).map(([k,v])=>`
+    <tr>
+      <td style="padding:6px 10px;color:#9B9690;font-size:12px">${k}</td>
+      <td style="padding:6px 10px;font-weight:600;color:${v>0?'#7AAE82':'#C07870'};font-size:12px">${v} rows ${v===0?'⚠️ EMPTY — check sheet name & headers':' ✓'}</td>
+    </tr>`).join('');
+
+  const sampleRows = Object.entries(sample).map(([k,v])=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold);margin-bottom:4px">${k} — first row read:</div>
+      <pre style="background:#0D0D0F;border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:10px;font-size:10.5px;color:#9B9690;overflow-x:auto;white-space:pre-wrap">${v ? JSON.stringify(v, null, 2) : 'No data read — sheet may be empty or headers unrecognised'}</pre>
+    </div>`).join('');
+
+  const logRows = debugLog.slice(-20).reverse().map(l=>`
+    <div style="border-bottom:1px solid rgba(255,255,255,0.04);padding:6px 0">
+      <div style="font-size:10.5px;color:#C9A84C">${l.msg}</div>
+      <div style="font-size:10px;color:#5E5C58;margin-top:2px">${l.data}</div>
+    </div>`).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'debug-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  modal.innerHTML = `
+    <div style="background:#111115;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:30px;max-width:680px;width:92%;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold)">Data Debug Panel</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px">Source: ${source} · ${new Date().toLocaleTimeString()}</div>
+        </div>
+        <button onclick="document.getElementById('debug-modal').remove()" style="background:rgba(255,255,255,0.06);border:none;color:#9B9690;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif">✕ Close</button>
+      </div>
+
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Row Counts Per Sheet</div>
+      <table style="width:100%;border-collapse:collapse;background:#16161C;border-radius:8px;overflow:hidden;margin-bottom:22px">${countRows}</table>
+
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:12px">What the dashboard is reading</div>
+      ${sampleRows}
+
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Recent Debug Log</div>
+      <div style="background:#0D0D0F;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto">${logRows || '<div style="color:#5E5C58;font-size:11px">No log entries yet. Click Refresh to generate logs.</div>'}</div>
+
+      <div style="margin-top:20px;padding:14px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.12);border-radius:8px">
+        <div style="font-size:11px;color:var(--gold);margin-bottom:6px">📋 Common fixes if rows show 0:</div>
+        <div style="font-size:11px;color:#9B9690;line-height:1.9">
+          1. Make sure the sheet tab name matches exactly: <strong style="color:#F0EDE6">Daily Sales, Inventory, Products & Prices, Employees, Reviews & CSAT, Hero Products, Monthly Summary</strong><br/>
+          2. Your headers must be in <strong style="color:#F0EDE6">row 3</strong> (rows 1 & 2 are title/subtitle)<br/>
+          3. Check sharing is set to <strong style="color:#F0EDE6">Anyone with the link → Viewer</strong><br/>
+          4. Make sure the <strong style="color:#F0EDE6">Sheets API</strong> is enabled in Google Cloud Console
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:10px">
+        <button onclick="refreshData().then(()=>{document.getElementById('debug-modal').remove();openDebug();})" style="background:var(--gold);color:#1a1200;font-weight:700;font-size:12px;padding:8px 18px;border:none;border-radius:7px;cursor:pointer;font-family:'Outfit',sans-serif">↻ Refresh & Recheck</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+// ── REFRESH ───────────────────────────────────────────────────
+async function refreshData() {
+  if (!SHEET_ID || !API_KEY) { DATA = JSON.parse(JSON.stringify(SAMPLE)); renderAll(); return; }
+  const ok = await loadFromSheets();
+  if (ok) renderAll();
+  else { console.warn('Refresh failed, keeping current data'); }
+}
+
+// Auto-init: load from sheets if credentials saved, else show modal
+(async () => {
+  if (SHEET_ID && API_KEY) {
+    document.getElementById('setup-modal').classList.add('hidden');
+    const ok = await loadFromSheets();
+    if (ok) {
+      document.getElementById('conn-indicator').className='conn-badge connected';
+      document.getElementById('conn-indicator').textContent='● Live from Sheets';
+      document.getElementById('data-source-label').textContent='Google Sheets';
+    } else {
+      DATA = JSON.parse(JSON.stringify(SAMPLE));
+    }
+  } else {
+    DATA = JSON.parse(JSON.stringify(SAMPLE));
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
